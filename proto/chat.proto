@@ -11,13 +11,18 @@ service Chat {
 }
 
 message Request {
-  string name = 1;
-  string content = 2;
-  string event = 3;
+  string fromUser = 1;
+  string toUser = 2;
+  string roomName = 3;
+  string content = 4;
+  string event = 5;
 }
 
 message Response {
-  string name = 1;
-  int64 time = 2;
-  string content = 3;
+  string fromUser = 1;
+  string toUser = 2;
+  string roomName = 3;
+  string content = 4;
+  int64 time = 5;
+  int32 msgType = 6; // 消息类型，私聊 1，群聊 2
 }

@@ -131,21 +131,15 @@ func (t *tClient) createStream() {
 }
 
 func (t tClient) tryLogin() {
-	if err := t.stream.Send(&proto.Request{Content: "may i login?", Name: t.getName(), Event: "login"}); err != nil {
+	if err := t.stream.Send(&proto.Request{Content: "may i login?", FromUser: t.getName(), Event: "login"}); err != nil {
 		return
 	}
 }
 
 func (t tClient) send(string string) {
-	if err := t.stream.Send(&proto.Request{Content: string, Name: t.getName(), Event: "msg"}); err != nil {
+	if err := t.stream.Send(&proto.Request{Content: string, FromUser: t.getName(), Event: "msg"}); err != nil {
 		return
 	}
-}
-
-type output struct {
-	User    string `json:"user"`
-	Time    int64  `json:"time"`
-	Content string `json:"content"`
 }
 
 func main() {
@@ -163,7 +157,7 @@ func main() {
 			if err != nil {
 				log.Println("recv err:", err)
 			}
-			fmt.Fprintf(tClient.content, "[gray]%s [red]%s[white]: %v \n", time.Unix(recv.Time, 0).Format("15:04:05"), recv.Name, recv.Content)
+			fmt.Fprintf(tClient.content, "[gray]%s [red]%s[white]: %v \n", time.Unix(recv.Time, 0).Format("15:04:05"), recv.FromUser, recv.Content)
 		}
 	}()
 
