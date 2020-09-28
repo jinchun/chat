@@ -24,6 +24,12 @@ type tClient struct {
 	sayInput *tview.Form
 }
 
+const (
+	MsgTypePrivate = 1
+	MsgTypeRoom    = 2
+	MsgTypeSystem  = 3
+)
+
 func (t tClient) quit() {
 	t.app.Stop()
 }
@@ -131,15 +137,36 @@ func (t *tClient) createStream() {
 }
 
 func (t tClient) tryLogin() {
-	if err := t.stream.Send(&proto.Request{Content: "may i login?", FromUser: t.getName(), Event: "login"}); err != nil {
+	if err := t.stream.Send(&proto.Request{Content: "may i login?", FromUser: t.getName(), Event: "login", RoomName: "defaultRoom"}); err != nil {
+		return
+	}
+}
+
+func (t tClient) logout() {
+	if err := t.stream.Send(&proto.Request{Content: "bye bye.", FromUser: t.getName(), Event: "logout", RoomName: "defaultRoom"}); err != nil {
 		return
 	}
 }
 
 func (t tClient) send(string string) {
-	if err := t.stream.Send(&proto.Request{Content: string, FromUser: t.getName(), Event: "msg"}); err != nil {
+	if err := t.stream.Send(&proto.Request{Content: string, FromUser: t.getName(), Event: "msg", RoomName: "defaultRoom"}); err != nil {
 		return
 	}
+}
+
+func (t tClient) formatMsg(recv *proto.Response) string {
+	var content string
+	recvTime := time.Unix(recv.Time, 0).Format("15:04:05")
+	switch recv.MsgType {
+	case MsgTypePrivate:
+		content = fmt.Sprintf("[gray]%s [red]%s[white]悄悄对你说: %v \n", recvTime, recv.FromUser, recv.Content)
+	case MsgTypeSystem:
+		content = fmt.Sprintf("[gray]%s [系统消息]: %v \n", recvTime, recv.Content)
+	case MsgTypeRoom:
+		content = fmt.Sprintf("[gray]%s [red]%s[white]: %v \n", recvTime, recv.FromUser, recv.Content)
+	}
+
+	return content
 }
 
 func main() {
@@ -156,13 +183,19 @@ func main() {
 
 			if err != nil {
 				log.Println("recv err:", err)
+				break
 			}
-			fmt.Fprintf(tClient.content, "[gray]%s [red]%s[white]: %v \n", time.Unix(recv.Time, 0).Format("15:04:05"), recv.FromUser, recv.Content)
+
+			fmt.Fprintf(tClient.content, tClient.formatMsg(recv))
 		}
+
 	}()
 
 	tClient.initApp()
-
-	defer tClient.conn.Close()
+	defer func() {
+		log.Println("conn close.")
+		tClient.logout()
+		tClient.conn.Close()
+	}()
 
 }

@@ -118,7 +118,7 @@ type Response struct {
 	RoomName string `protobuf:"bytes,3,opt,name=roomName,proto3" json:"roomName,omitempty"`
 	Content  string `protobuf:"bytes,4,opt,name=content,proto3" json:"content,omitempty"`
 	Time     int64  `protobuf:"varint,5,opt,name=time,proto3" json:"time,omitempty"`
-	MsgType  int32  `protobuf:"varint,6,opt,name=msgType,proto3" json:"msgType,omitempty"` // 消息类型，私聊 1，群聊 2
+	MsgType  int32  `protobuf:"varint,6,opt,name=msgType,proto3" json:"msgType,omitempty"` // 消息类型，私聊 1，群聊 2，系统消息 3
 }
 
 func (x *Response) Reset() {
