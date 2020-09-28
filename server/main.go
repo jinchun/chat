@@ -2,6 +2,7 @@ package main
 
 import (
 	proto "chatDemo/proto"
+	"chatDemo/server/Database"
 	"chatDemo/server/Rabbit"
 	"chatDemo/server/Streamer"
 	"google.golang.org/grpc"
@@ -14,15 +15,16 @@ func main() {
 
 	server := grpc.NewServer()
 
-	streamer := &Streamer.Streamer{Rabbit: &Rabbit.Rabbit{}}
+	streamer := &Streamer.Streamer{Rabbit: &Rabbit.Rabbit{}, GORM: &Database.GORM{}}
 
 	proto.RegisterChatServer(server, streamer)
 
+	streamer.GORM.Init()
 	streamer.Rabbit.Con()
 	go func() {
 		err := streamer.Consume()
 		if err != nil {
-			log.Println(err)
+			log.Println("consume err:", err)
 		}
 	}()
 
