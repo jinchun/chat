@@ -2,37 +2,32 @@ package main
 
 import (
 	proto "chatDemo/proto"
-	"chatDemo/server/Database"
-	"chatDemo/server/Rabbit"
-	"chatDemo/server/Streamer"
+	"chatDemo/server/Chat"
 	"google.golang.org/grpc"
 	"log"
 	"net"
 )
 
 func main() {
-	log.Println("Start...")
-
+	log.Println("service start...")
 	server := grpc.NewServer()
-
-	streamer := &Streamer.Streamer{Rabbit: &Rabbit.Rabbit{}, GORM: &Database.GORM{}}
-
+	streamer := &Chat.Stream{}
 	proto.RegisterChatServer(server, streamer)
-
-	streamer.GORM.Init()
-	streamer.Rabbit.Con()
-	go func() {
-		err := streamer.Consume()
-		if err != nil {
-			log.Println("consume err:", err)
-		}
-	}()
+	streamer.Room.FlushRoom("")
 
 	address, err := net.Listen("tcp", ":3020")
 	if err != nil {
 		panic(err)
 	}
-
+	log.Println("service started.")
+	go func() {
+		log.Println("consume started.")
+		err := streamer.Consume()
+		if err != nil {
+			log.Println("consume err:", err)
+		}
+		defer streamer.Queue.Close()
+	}()
 	if err := server.Serve(address); err != nil {
 		panic(err)
 	}

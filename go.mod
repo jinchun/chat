@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/gdamore/tcell v1.4.0 // indirect
+	github.com/go-redis/redis/v8 v8.2.3
 	github.com/golang/protobuf v1.4.2
 	github.com/rivo/tview v0.0.0-20200915114512-42866ecf6ca6 // indirect
 	github.com/streadway/amqp v1.0.0
@@ -13,6 +14,4 @@ require (
 	google.golang.org/genproto v0.0.0-20200921165018-b9da36f5f452 // indirect
 	google.golang.org/grpc v1.32.0
 	google.golang.org/protobuf v1.25.0
-	gorm.io/driver/mysql v1.0.1
-	gorm.io/gorm v1.20.2
 )
