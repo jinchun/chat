@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 )
 
 type Stream struct {
@@ -127,14 +128,21 @@ func (s *Stream) Consume() error {
 				}
 			}
 
-			if err := s.sendToAll(recv, MsgTypeSystem, fmt.Sprintf("%s 进入了房间。", recv.FromUser)); err != nil {
+			offlineMsg := s.Message.FetchOfflineMsg(recv.FromUser)
+			for _, msg := range offlineMsg {
+				if err := curUser.Stream.Send(&proto.Response{FromUser: msg.FromUser, Time: msg.CreatedAt.Unix(), Content: msg.Content, MsgType: MsgTypePrivate}); err != nil {
+					return err
+				}
+			}
+
+			if err := s.SendToAll(recv, MsgTypeSystem, fmt.Sprintf("%s 进入了房间。", recv.FromUser)); err != nil {
 				log.Println("send to all failed.", err.Error())
 			}
 			break
 		case "logout":
 			if s.Room.LeftRoom(s.Room.getRoomName(recv.RoomName), recv.FromUser) {
 				s.DelClient(recv.FromUser)
-				if err := s.sendToAll(recv, MsgTypeSystem, fmt.Sprintf("%s 离开了房间。", recv.FromUser)); err != nil {
+				if err := s.SendToAll(recv, MsgTypeSystem, fmt.Sprintf("%s 离开了房间。", recv.FromUser)); err != nil {
 					log.Println("send to all failed.", err.Error())
 				}
 			}
@@ -143,15 +151,20 @@ func (s *Stream) Consume() error {
 			if recv.Content != "" {
 				switch recv.Content {
 				case "whoami":
-					if err := s.sendTo(recv.FromUser, recv, MsgTypeSystem, recv.FromUser); err != nil {
+					if err := s.SendTo(recv.FromUser, recv, MsgTypeSystem, recv.FromUser); err != nil {
 						return err
 					}
 					return nil
 				default:
 					log.Printf("[recv]: %v", recv)
-					if err := s.sendToAll(recv, MsgTypeRoom, ""); err != nil {
-						return err
+					if recv.ToUser == "" {
+						if err := s.SendToAll(recv, MsgTypeRoom, ""); err != nil {
+							return err
+						}
+					} else {
+						s.SendToPrivate(recv)
 					}
+
 					s.Message.SaveRecord(recv)
 				}
 			}
@@ -160,6 +173,11 @@ func (s *Stream) Consume() error {
 	}
 
 	return nil
+}
+
+func (s *Stream) SendToPrivate(recv *proto.Request) {
+	s.SendTo(recv.FromUser, recv, MsgTypeRoom, recv.Content)
+	s.SendTo(recv.ToUser, recv, MsgTypePrivate, recv.Content)
 }
 
 func (s *Stream) SaveClient(name string, stream proto.Chat_BidStreamServer) {
@@ -181,4 +199,47 @@ func (s *Stream) GetClientByUser(name string) (*Client, error) {
 		return s.Clients[s.User.MapKey(name)], nil
 	}
 	return nil, errors.New("client not exists")
+}
+
+func (s *Stream) SendTo(name string, recv *proto.Request, msgType int32, content string) error {
+	if content == "" {
+		content = recv.Content
+	}
+	if content == "" {
+		return nil
+	}
+	client, err := s.GetClientByUser(name)
+	if err != nil {
+		log.Println("get client failed, changed to offline message.")
+		s.Message.OfflineMsg(recv)
+		return nil
+	}
+	if err := client.Stream.Send(&proto.Response{FromUser: recv.FromUser, Time: time.Now().Unix(), Content: content, MsgType: msgType, RoomName: recv.RoomName}); err != nil {
+		log.Println("send error, continue...", err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *Stream) SendToAll(recv *proto.Request, msgType int32, content string) error {
+	log.Println("send to all")
+
+	members, err := s.Cache.SMembers(s.Room.MapKey(s.Room.getRoomName(recv.RoomName)))
+	if err != nil {
+		log.Printf("get room:%s members failed:%v\n", recv.RoomName, err.Error())
+		return err
+	}
+
+	for _, member := range members {
+		if err := s.SendTo(member, recv, msgType, content); err != nil {
+			s.Room.LeftRoom(s.Room.getRoomName(recv.RoomName), member)
+			s.DelClient(member)
+			if err := s.SendToAll(recv, MsgTypeSystem, fmt.Sprintf("%s 离开了房间。", member)); err != nil {
+				log.Println("send to all failed.", err.Error())
+			}
+		}
+		log.Println("send to", member)
+	}
+	return nil
 }

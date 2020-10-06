@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"io"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -163,7 +164,14 @@ func (t tClient) logout() {
 }
 
 func (t tClient) send(string string) {
-	if err := t.stream.Send(&proto.Request{Content: string, FromUser: t.getName(), Event: "msg", RoomName: "defaultRoom"}); err != nil {
+	r := regexp.MustCompile(`(?U)^@(.*)\s`)
+	matches := r.FindStringSubmatch(string)
+	request := proto.Request{Content: string, FromUser: t.getName(), Event: "msg", RoomName: "defaultRoom"}
+	if len(matches) != 0 {
+		request = proto.Request{Content: string, FromUser: t.getName(), Event: "msg", RoomName: "defaultRoom", ToUser: matches[1]}
+	}
+
+	if err := t.stream.Send(&request); err != nil {
 		return
 	}
 }
