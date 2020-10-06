@@ -4,6 +4,8 @@ import (
 	"context"
 	"github.com/go-redis/redis/v8"
 	"log"
+	"os"
+	"strconv"
 	"time"
 )
 
@@ -14,10 +16,17 @@ var rdb *redis.Client
 var ctx context.Context
 
 func init() {
+	redisDB := os.Getenv("REDIS_DB")
+	var db int64
+	if redisDB == "" {
+		db = 0
+	} else {
+		db, _ = strconv.ParseInt(redisDB, 10, 0)
+	}
 	rdb = redis.NewClient(&redis.Options{
-		Addr:     "localhost:32769",
-		Password: "", // no password set
-		DB:       0,  // use default DB
+		Addr:     os.Getenv("REDIS_ADDR"),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       int(db),
 	})
 	ctx = context.Background()
 

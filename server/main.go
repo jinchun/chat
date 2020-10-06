@@ -2,6 +2,7 @@ package main
 
 import (
 	proto "chatDemo/proto"
+	_ "chatDemo/server/Bootstrap"
 	"chatDemo/server/Chat"
 	"google.golang.org/grpc"
 	"log"

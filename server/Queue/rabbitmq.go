@@ -3,6 +3,7 @@ package Queue
 import (
 	"github.com/streadway/amqp"
 	"log"
+	"os"
 )
 
 type Rabbit struct {
@@ -19,7 +20,7 @@ var channel *amqp.Channel
 var queue amqp.Queue
 
 func init() {
-	_conn, err := amqp.Dial("amqp://guest:guest@localhost:32773/")
+	_conn, err := amqp.Dial(os.Getenv("RABBITMQ_CONNECT"))
 
 	failOnError(err, "Failed to connect to RabbitMQ")
 	channel, err = _conn.Channel()
