@@ -48,7 +48,7 @@ func (t *tClient) LoginSubmit() {
 		return
 	}
 
-	t.name = name
+	t.name = strings.ReplaceAll(name, " ", "_")
 	if err := t.tryLogin(); err != nil {
 		log.Println("login err.", err)
 		return

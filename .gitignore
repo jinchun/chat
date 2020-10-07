@@ -1,1 +1,5 @@
 .idea
+vendor
+.go
+bin
+.DS_Store
