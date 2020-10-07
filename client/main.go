@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"io"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -25,9 +26,10 @@ type tClient struct {
 }
 
 const (
-	MsgTypePrivate = 1
-	MsgTypeRoom    = 2
-	MsgTypeSystem  = 3
+	MsgTypePrivate  = 1
+	MsgTypeRoom     = 2
+	MsgTypeSystem   = 3
+	MsgTypeLoggedIn = 4
 )
 
 func (t tClient) quit() {
@@ -47,7 +49,11 @@ func (t *tClient) LoginSubmit() {
 	}
 
 	t.name = name
-	t.tryLogin()
+	if err := t.tryLogin(); err != nil {
+		log.Println("login err.", err)
+		return
+	}
+
 	t.initChatPanel()
 	t.app.SetRoot(t.chat, true).SetFocus(t.chat)
 }
@@ -112,6 +118,8 @@ func (t *tClient) initChatPanel() {
 			} else {
 				t.app.SetFocus(t.content)
 			}
+		case tcell.KeyCtrlC:
+			t.logout()
 		}
 
 		return event
@@ -136,20 +144,34 @@ func (t *tClient) createStream() {
 	t.stream = stream
 }
 
-func (t tClient) tryLogin() {
+func (t tClient) tryLogin() error {
 	if err := t.stream.Send(&proto.Request{Content: "may i login?", FromUser: t.getName(), Event: "login", RoomName: "defaultRoom"}); err != nil {
-		return
+		fmt.Println("login err.", err)
+		return err
 	}
+	return nil
 }
 
 func (t tClient) logout() {
+	log.Println("logout.")
+
 	if err := t.stream.Send(&proto.Request{Content: "bye bye.", FromUser: t.getName(), Event: "logout", RoomName: "defaultRoom"}); err != nil {
+		log.Println(err)
 		return
 	}
+	log.Println("logout..")
+
 }
 
 func (t tClient) send(string string) {
-	if err := t.stream.Send(&proto.Request{Content: string, FromUser: t.getName(), Event: "msg", RoomName: "defaultRoom"}); err != nil {
+	r := regexp.MustCompile(`(?U)^@(.*)\s`)
+	matches := r.FindStringSubmatch(string)
+	request := proto.Request{Content: string, FromUser: t.getName(), Event: "msg", RoomName: "defaultRoom"}
+	if len(matches) != 0 {
+		request = proto.Request{Content: string, FromUser: t.getName(), Event: "msg", RoomName: "defaultRoom", ToUser: matches[1]}
+	}
+
+	if err := t.stream.Send(&request); err != nil {
 		return
 	}
 }
@@ -178,24 +200,29 @@ func main() {
 			recv, err := tClient.stream.Recv()
 			if err == io.EOF {
 				log.Println("io EOF")
-				break
+				return
 			}
 
 			if err != nil {
 				log.Println("recv err:", err)
-				break
+				return
+			}
+
+			if recv.MsgType == MsgTypeLoggedIn {
+				tClient.modal(fmt.Sprintf("用户 %s 已登录，请更换用户名", tClient.getName()), tClient.login)
 			}
 
 			fmt.Fprintf(tClient.content, tClient.formatMsg(recv))
 		}
-
 	}()
 
 	tClient.initApp()
 	defer func() {
-		log.Println("conn close.")
-		tClient.logout()
-		tClient.conn.Close()
+		log.Println("client closed.")
+		if tClient.conn != nil {
+			tClient.logout()
+			defer tClient.conn.Close()
+		}
 	}()
 
 }
